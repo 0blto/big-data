@@ -55,7 +55,7 @@ def hh_vacancies_etl():
 
         for v in vacancies:
             sal = v.get("salary") or {}
-            mongo.upsert_one(MONGO_DB, MONGO_RAW_COLL, {"vacancy_id": v["vacancy_id"]}, v)
+            mongo.upsert_versioned(MONGO_DB, MONGO_RAW_COLL, {"vacancy_id": v["vacancy_id"]}, v)
             s3.upsert_object(BUCKET, f"{v['vacancy_id']}.json", json.dumps(v["raw"]).encode())
             pg.upsert("hh_vacancies", {
                 "vacancy_id": v["vacancy_id"],
@@ -74,3 +74,4 @@ def hh_vacancies_etl():
 
 
 hh_vacancies_etl()
+
