@@ -67,7 +67,7 @@ def avito_vacancies_etl():
                         "raw_html": ad.get_attribute("innerHTML")
                     }
 
-                    mongo.upsert_one(MONGO_DB, MONGO_COLL, {"url": doc["url"]}, doc)
+                    mongo.upsert_versioned(MONGO_DB, MONGO_COLL, {"url": doc["url"]}, doc)
                     s3.upsert_object(BUCKET, f"{hashlib.md5(url.encode()).hexdigest()}.json", json.dumps(doc).encode())
                     pg.upsert("avito_vacancies", {
                         "url": doc["url"],
