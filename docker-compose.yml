@@ -2,7 +2,7 @@ version: '3.8'
 
 x-airflow-common:
   &airflow-common
-  build: .
+  build: ./airflow
   env_file:
     - .env
   environment:
@@ -42,9 +42,9 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    entrypoint: ["/opt/airflow/scripts/init_airflow.sh"]
+    entrypoint: ["/opt/airflow/init.sh"]
     volumes:
-      - ./scripts:/opt/airflow/scripts
+      - ./airflow/init.sh:/opt/airflow/init.sh
     restart: "no"
 
   airflow-webserver:
@@ -56,20 +56,6 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
-
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - airflow_net
 
   ods_postgres:
     image: postgres:15
@@ -84,32 +70,55 @@ services:
     networks:
       - airflow_net
 
-  ods_mongo:
-    image: mongo:6
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    depends_on:
+      ods_postgres:
+        condition: service_started
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${ODS_MONGO_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${ODS_MONGO_PASSWORD}
-      MONGO_INITDB_DATABASE: ${ODS_MONGO_DB}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
-      - "27017:27017"
-    volumes:
-      - ods_mongo_data:/data/db
-    networks:
-      - airflow_net
+      - "5050:80"
 
-  selenium:
-    image: selenium/standalone-chrome
-    shm_size: 2gb
+  pg-superset:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+    volumes:
+      - pg_superset_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "superset" ]
+      interval: 5s
+      retries: 10
+
+  superset:
+    build: ./superset
+    depends_on:
+      pg-superset:
+        condition: service_healthy
+    environment:
+      SUPERSET_SECRET_KEY: "THIS_IS_A_TEMPORARY_SECRET_KEY_REPLACE_IN_PROD"
+      SQLALCHEMY_DATABASE_URI: "postgresql://superset:superset@pg-superset:5432/superset"
+      SUPERSET_LOAD_EXAMPLES: "no"
+      ODS_POSTGRES_PASSWORD: ${ODS_POSTGRES_PASSWORD}
     ports:
-      - "4444:4444"
+      - "8088:8088"
+    volumes:
+      - superset_home:/app/superset_home
+      - ./superset/init.sh:/app/init.sh
+      - ./superset/superset_data.zip:/app/superset_data.zip
+    entrypoint: [ "/bin/bash", "/app/init.sh" ]
     networks:
-      - airflow_net
+      airflow_net:
 
 networks:
   airflow_net:
 
 volumes:
   postgres_airflow_data:
-  minio_data:
   ods_pgdata:
-  ods_mongo_data:
+  pg_superset_data:
+  superset_home:
