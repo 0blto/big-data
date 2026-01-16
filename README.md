@@ -363,9 +363,9 @@ GROUP BY vn.title;
 ### Витрины Superset
 
 #### Количество предложений по дням, городам и вакансиям
-![Предложения по дням](readme_imgs\market_vacancies.PNG)
-![Предложения по дням и городам](readme_imgs\vacancy_market_cities.PNG)
-![Предложения по вакансиям](readme_imgs\vacancies_by_name_count.PNG)
+![Предложения по дням](readme_imgs/market_vacancies.PNG)
+![Предложения по дням и городам](readme_imgs/vacancy_market_cities.PNG)
+![Предложения по вакансиям](readme_imgs/vacancies_by_name_count.PNG)
 
 #### Зарплаты по городам, компаниям, дням, вакансиям
 ![Зарплаты по городам](readme_imgs/min_max_salary_by_cities.PNG)
