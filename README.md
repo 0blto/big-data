@@ -287,4 +287,108 @@ max_active_runs=1 для избежания rate limits API
 
 Архитектура обеспечивает надежную ежедневную загрузку данных о вакансиях Data Engineer в нормализованную аналитическую схему, готовую для анализа рынка труда.
 
+Отлично! Тогда вот полностью готовый блок для **README**, оформленный в твоём стиле, с описанием витрин из твоего DM и визуализаций Superset:
+
+---
+
+### Цель работы
+
+Цель данной лабораторной работы заключается в построении витрин данных на основе нормализованных таблиц аналитического слоя (DDS) и визуализации ключевых метрик с использованием Superset. В результате работы должны быть сформированы дашборды, отражающие аналитические выводы, позволяющие:
+
+* Отслеживать динамику вакансий по регионам и компаниям
+* Сравнивать средние и медианные зарплаты по категориям вакансий
+* Выявлять популярные вакансии и тенденции на рынке труда
+
+---
+
+## Этапы выполнения
+
+* [x] **Развертывание Superset**: добавление сервиса в docker-compose, настройка подключений к PostgreSQL
+* [x] **Создание витрин данных (Data Marts)** на основе fact и dim таблиц DDS:
+
+  * **dm_vacancy_market** — агрегированные метрики по городам и датам
+  * **dm_companies_activity** — активность компаний по количеству вакансий и средней зарплате
+  * **dm_vacancy_titles** — популярность вакансий по названию с зарплатными метриками
+* [x] **Реализация ETL процессов для витрин**: DAG `dds_to_dm_etl`
+
+  * **Extract:** выборка данных из DDS
+  * **Transform:** агрегирование и расчёт ключевых метрик
+  * **Load:** загрузка в витрины PostgreSQL
+* [x] **Построение дашбордов в Superset:**
+
+  * Дашборд `Lab3 Dashboard` содержит 7 визуализаций, распределённых по строкам:
+
+    * 1 строка: **Vacancy market cities**, **Avg salary from by cities**, **Salary from-to by vacancy name**
+    * 2 строка: **Companies avg salary**, **Market vacancies**, **Avg salary to by cities**
+    * 3 строка: **Vacancies by name count**
+  * Визуализации включают:
+
+    * **Bar chart** — средняя зарплата по городам и компаниям
+    * **Line chart** — динамика вакансий по категориям
+    * **Pie chart** — распределение вакансий по компаниям
+    * **Table** — топ вакансий по количеству
+    * **Heatmap** — активность вакансий по городам
+* [x] **Связь ETL витрин с DAG детального слоя:**
+
+  * Использован `ExternalTaskSensor` для ожидания завершения загрузки ODS/DDS
+  * Обеспечена целостность данных перед построением витрин
+
+---
+
+### SQL скрипты витрин (DM)
+
+```sql
+-- Витрина вакансий по городам и датам
+CREATE TABLE dm_vacancy_market AS
+SELECT
+    d.date_bk               AS date,
+    c.city_name             AS city,
+    COUNT(DISTINCT fs.vacancy_sk) AS vacancies_cnt,
+    AVG(fs.salary_from)     AS avg_salary_from,
+    AVG(fs.salary_to)       AS avg_salary_to
+FROM fact_salary fs
+JOIN dim_date d ON fs.date_sk = d.date_sk
+JOIN dim_location l ON fs.location_sk = l.location_sk
+JOIN dim_city c ON l.city_sk = c.city_sk
+WHERE fs.archived = FALSE
+GROUP BY d.date_bk, c.city_name;
+
+-- Витрина активности компаний
+CREATE TABLE dm_companies_activity AS
+SELECT
+    comp.company_name,
+    COUNT(DISTINCT fs.vacancy_sk) AS vacancies_cnt,
+    AVG(fs.salary_from) AS avg_salary_from,
+    AVG(fs.salary_to) AS avg_salary_to
+FROM fact_salary fs
+JOIN dim_vacancy v ON fs.vacancy_sk = v.vacancy_sk
+JOIN dim_company comp ON v.company_sk = comp.company_sk
+WHERE fs.archived = FALSE
+GROUP BY comp.company_name;
+
+-- Витрина популярных вакансий по названиям
+CREATE TABLE dm_vacancy_titles AS
+SELECT
+    vn.title,
+    COUNT(DISTINCT fs.vacancy_sk) AS vacancies_cnt,
+    AVG(fs.salary_from) AS avg_salary_from,
+    AVG(fs.salary_to) AS avg_salary_to
+FROM fact_salary fs
+JOIN dim_vacancy v ON fs.vacancy_sk = v.vacancy_sk
+JOIN dim_vacancy_name vn
+    ON v.vacancy_name_sk = vn.vacancy_name_sk
+WHERE vn.is_current = TRUE
+  AND fs.archived = FALSE
+GROUP BY vn.title;
+```
+---
+
+### Вывод
+
+* Витрины данных позволяют быстро анализировать агрегированные метрики по вакансиям и компаниям
+* Superset обеспечивает интерактивную визуализацию, фильтрацию и сопоставление показателей
+* Архитектура ETL + витрины + дашборд позволяет получать актуальные данные для аналитических задач
+
+**Итог:** лабораторная работа №3 успешно выполнена. Витрины построены на основе данных DDS, дашборд в Superset готов к использованию и интерактивному анализу вакансий.
+
 
